@@ -1,0 +1,5 @@
+blist
+python-ldap
+argparse
+openpyxl
+setuptools
