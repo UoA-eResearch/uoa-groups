@@ -17,12 +17,15 @@ from uoa_ldap import uoa_ldap
 import traceback
 import json
 
-CONF_FILENAME = 'pyroji.conf'
-CONF_SYS = '/etc/'+CONF_FILENAME
-CONF_HOME = os.path.expanduser('~/.'+CONF_FILENAME)
-
-UOA_GROUPS = UoA_groups("/home/markus/Projects/UoA-directory/Departments-and-Description-as-at-22.05.2015.xlsx")
-
+CONF_FOLDERNAME = 'uoa-groups'
+CONF_FILENAME = 'config'
+CONF_UOAGROUPS_FILENAME = 'departments.xlsx'
+CONF_SYS = os.path.join('/etc/', CONF_FOLDERNAME)
+CONF_HOME = os.path.join(os.path.expanduser('~'), '.'+CONF_FOLDERNAME)
+CONF_SYS_CONFIG = os.path.join(CONF_SYS, CONF_FILENAME)
+CONF_SYS_UOAGROUPS = os.path.join(CONF_SYS, CONF_UOAGROUPS_FILENAME)
+CONF_HOME_CONFIG = os.path.join(CONF_HOME, CONF_FILENAME)
+CONF_HOME_UOAGROUPS = os.path.join(CONF_HOME, CONF_UOAGROUPS_FILENAME)
 
 # arg parsing ========================================
 class CliCommands(object):
@@ -53,7 +56,7 @@ class CliCommands(object):
 
         group_parser = subparsers.add_parser('group', help='group query')
         group_parser.add_argument('--id', help="Only query exact group id.", action='store_true')
-        group_parser.add_argument('--all', '-a', help="Print the complete group hierarchy.",  action='store_true')
+        # group_parser.add_argument('--all', '-a', help="Print the complete group hierarchy.",  action='store_true')
         group_parser.add_argument('group', metavar='<group>', type=unicode, nargs=1, help='the group to query, will first try to find exact group id match (ignore-case -- 1 result in this case), if it can\'t find anything will use search term against group names too (ignore-case) and list all matches.')
         group_parser.set_defaults(func=self.group, command='group')
 
@@ -77,7 +80,7 @@ class CliCommands(object):
         if args.json:
 
             hierarchy = {}
-            root = UOA_GROUPS.root
+            root = self.config.uoa_groups.root
             hierarchy['name'] = root.name
             hierarchy['code'] = root.gid
             hierarchy['divisions'] = []
@@ -115,20 +118,20 @@ class CliCommands(object):
 
         else:
             print ""
-            UOA_GROUPS.print_tree()
+            self.config.uoa_groups.print_tree()
             print ""
 
     def group(self,args):
 
         print ""
         if args.id:
-            group = UOA_GROUPS.get_group(args.group[0], True)
+            group = self.config.uoa_groups.get_group(args.group[0], True)
             if group:
                 group.print_tree_down()
                 print ""
 
         else:
-            groups = UOA_GROUPS.find_groups(args.group[0], True)
+            groups = self.config.uoa_groups.find_groups(args.group[0], True)
 
             for g in groups:
                 g.print_tree_down()
@@ -161,7 +164,7 @@ class CliCommands(object):
 
         for u in users:
 
-            res = researcher.from_ldap_entry(u[0][1], UOA_GROUPS)
+            res = researcher.from_ldap_entry(u[0][1], self.config.uoa_groups)
             pretty_print_researcher(res, args.roles, args.groups, args.department)
             print "        -----------           "
 
@@ -171,44 +174,56 @@ class CliCommands(object):
 
         ldap = self.get_ldap()
 
-        user = researcher.from_upi(args.upi[0], UOA_GROUPS, ldap)
+        user = researcher.from_upi(args.upi[0], self.config.uoa_groups, ldap)
 
         pretty_print_researcher(user, args.roles, args.groups, args.department)
 
 class ProjectConfig(object):
 
     def __init__(self):
+
+        if os.path.exists(CONF_HOME_UOAGROUPS):
+            self.uoagroups_file = CONF_HOME_UOAGROUPS
+        elif os.path.exists(CONF_SYS_UOAGROUPS):
+            self.uoagroups_file = CONF_SYS_UOAGROUPS
+        else:
+            print "No groups file found. Please copy it to either: {} or {}".format(CONF_HOME_UOAGROUPS, CONF_SYS_UOAGROUPS)
+            sys.exit(1)
+
+        self.uoa_groups = UoA_groups(self.uoagroups_file)
+
         config = ConfigParser.SafeConfigParser()
 
         try:
             user = os.environ['SUDO_USER']
-            conf_user = os.path.expanduser('~'+user+"/."+CONF_FILENAME)
-            candidates = [CONF_SYS, conf_user, CONF_HOME]
+            conf_user = os.path.join(os.path.expanduser('~'+user), "/."+CONF_FOLDERNAME, CONF_FILENAME)
+            candidates = [CONF_SYS_CONFIG, conf_user, CONF_HOME_CONFIG]
         except KeyError:
-            candidates = [CONF_SYS, CONF_HOME]
+            candidates = [CONF_SYS_CONFIG, CONF_HOME_CONFIG]
 
         config.read(candidates)
 
         try:
             self.ldap_user = config.get('LDAP', 'username')
         except (ConfigParser.NoSectionError, ConfigParser.NoOptionError) as e:
-            print e
+            # print "No LDAP username configured. Check 'https://github.com/UoA-eResearch/uoa-groups' for more details."
             self.ldap_user = None
 
         try:
             self.ldap_password = config.get('LDAP', 'password')
         except (ConfigParser.NoSectionError, ConfigParser.NoOptionError) as e:
+            # print "No LDAP password configured. Check 'https://github.com/UoA-eResearch/uoa-groups' for more details."
             self.ldap_password = None
 
 
         try:
             self.ldap_url = config.get('LDAP', 'url')
         except (ConfigParser.NoSectionError, ConfigParser.NoOptionError) as e:
+            # print "No LDAP url configured. Check 'https://github.com/UoA-eResearch/uoa-groups' for more details."
             self.ldap_url = None
-            
 
         
+
 def run():
     CliCommands()
 
-            
