@@ -153,7 +153,7 @@ class UoA_groups(object):
         self.root_name = "University of Auckland"
         self.root = UoA_group(self.root_gid, self.root_name)
         
-        for row in range(2, self.sheet.get_highest_row() + 1):
+        for row in range(2, self.sheet.max_row + 1):
             l1 = self.sheet['A'+str(row)].value
             if not l1 == self.root_gid:
                 raise Exception("Error in spreadsheet: "+str(self.root_gid)+" != "+str(l1))
