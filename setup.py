@@ -8,7 +8,6 @@ setup(name='uoa-groups',
           "argparse",
           "blist",
           "python-ldap",
-          "argparse",
           "openpyxl",
           "setuptools"
       ],
