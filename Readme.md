@@ -2,8 +2,12 @@
 
 ## Requirements
 
--   python
--   argparse
+ - python
+ - argparse
+ - blist
+ - python-ldap
+ - openpyxl
+ - setuptools
 
 ## Installation
 
